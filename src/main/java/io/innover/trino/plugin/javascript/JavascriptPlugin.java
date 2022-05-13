@@ -14,16 +14,19 @@
 
 package io.innover.trino.plugin.javascript;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.Set;
 
 public class JavascriptPlugin
         implements Plugin
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public Set<Class<?>> getFunctions()
     {
-        return ImmutableList.of(new JavascriptConnectorFactory("trino-javascript"));
+        return ImmutableSet.<Class<?>>builder()
+                .add(JavascriptEvalFunction.class)
+                .build();
     }
 }

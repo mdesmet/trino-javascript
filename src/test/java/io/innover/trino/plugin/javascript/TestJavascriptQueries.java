@@ -14,31 +14,24 @@
 
 package io.innover.trino.plugin.javascript;
 
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
+
 public class TestJavascriptQueries
-        extends AbstractTestQueryFramework
+        extends AbstractTestFunctions
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    @BeforeClass
+    public void setUp()
     {
-        return JavascriptQueryRunner.createQueryRunner();
+        functionAssertions.installPlugin(new JavascriptPlugin());
     }
 
     @Test
-    public void showTables()
+    public void javascriptEval()
     {
-        assertQuery("SHOW SCHEMAS FROM trino-javascript", "VALUES 'default', 'information_schema'");
-        assertQuery("SHOW TABLES FROM trino-javascript.default", "VALUES 'single_row'");
-    }
-
-    @Test
-    public void selectFromTable()
-    {
-        assertQuery("SELECT name FROM single_row WHERE id = 'x'",
-                "VALUES ('my-name')");
+        assertFunction("javascript_eval('function sum(a,b){ return a + b;}')", VARCHAR, "2.0");
     }
 }
