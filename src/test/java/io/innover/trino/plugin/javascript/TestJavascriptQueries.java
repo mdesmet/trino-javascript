@@ -32,6 +32,6 @@ public class TestJavascriptQueries
     @Test
     public void javascriptEval()
     {
-        assertFunction("javascript_eval('function sum(a,b){ return a + b;}')", VARCHAR, "2.0");
+        assertFunction("javascript_eval('function udf(a,b){ return a + b;}', ROW(1, 1))", VARCHAR, "2.0");
     }
 }
