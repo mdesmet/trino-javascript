@@ -14,8 +14,10 @@
 
 package io.innover.trino.plugin.javascript;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -41,7 +43,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -63,6 +67,8 @@ import static java.lang.Math.toIntExact;
 
 public class JavascriptEvalFunction
 {
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(UNKNOWN, TINYINT, SMALLINT, INTEGER, BIGINT);
+
     private JavascriptEvalFunction()
     {}
 
@@ -75,8 +81,8 @@ public class JavascriptEvalFunction
             @SqlNullable @SqlType("V") Block row)
     {
         Object[] args = mapArgs(rowType, row);
-
-        return executeJavascript(slice, args);
+        String script = slice.toStringUtf8();
+        return Slices.utf8Slice(executeJavascript(script, args));
     }
 
     @ScalarFunction("javascript_eval")
@@ -84,17 +90,16 @@ public class JavascriptEvalFunction
     public static Slice eval(
             @SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return executeJavascript(slice, new Object[]{});
+        String script = slice.toStringUtf8();
+        return Slices.utf8Slice(executeJavascript(script, new Object[]{}));
     }
 
-    private static Slice executeJavascript(Slice slice, Object[] args)
+    private static String executeJavascript(String script, Object[] args)
     {
         ScriptEngine engine = new ScriptEngineManager().getEngineByName("javascript");
         try {
-            // evaluate JavaScript code from String
-            engine.eval(slice.toStringUtf8());
-
-            return Slices.utf8Slice(((Invocable) engine).invokeFunction("udf", args).toString());
+            engine.eval(script);
+            return ((Invocable) engine).invokeFunction("udf", args).toString();
         }
         catch (ScriptException | NoSuchMethodException e) {
             throw new RuntimeException(e);
@@ -108,6 +113,10 @@ public class JavascriptEvalFunction
         Object[] output = new Object[positionCount];
         for (int position = 0; position < positionCount; position++) {
             Type type = types.get(0);
+            if (!SUPPORTED_TYPES.contains(type)) {
+                throw new TrinoException(NOT_SUPPORTED, "Argument of type " + type.getDisplayName() + " is not supported in javascript_eval invocation.");
+            }
+
             if (type.equals(UNKNOWN)) {
                 output[position] = null;
             }
@@ -151,7 +160,6 @@ public class JavascriptEvalFunction
                 output[position] = padSpaces(type.getSlice(block, position), charType).toStringUtf8();
             }
             // TODO: recursive call to map objects
-            // TODO: check for supported types
         }
         return output;
     }
