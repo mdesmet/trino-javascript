@@ -34,4 +34,10 @@ public class TestJavascriptQueries
     {
         assertFunction("javascript_eval('function udf(a,b){ return a + b;}', ROW(1, 1))", VARCHAR, "2.0");
     }
+
+    @Test(enabled = false)
+    public void security()
+    {
+        assertNotSupported("javascript_eval('function udf(){ return java.lang.System.getenv()}')", "Security ");
+    }
 }

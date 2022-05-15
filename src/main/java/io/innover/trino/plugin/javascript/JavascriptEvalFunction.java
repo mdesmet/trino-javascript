@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.CharType;
@@ -68,16 +69,32 @@ public class JavascriptEvalFunction
     @ScalarFunction("javascript_eval")
     @TypeParameter("V")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice eval(
+    public static Slice evalWithArgs(
             @TypeParameter("V") RowType rowType,
             @SqlType(StandardTypes.VARCHAR) Slice slice,
-            @SqlType("V") Block row)
+            @SqlNullable @SqlType("V") Block row)
+    {
+        Object[] args = mapArgs(rowType, row);
+
+        return executeJavascript(slice, args);
+    }
+
+    @ScalarFunction("javascript_eval")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice eval(
+            @SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return executeJavascript(slice, new Object[]{});
+    }
+
+    private static Slice executeJavascript(Slice slice, Object[] args)
     {
         ScriptEngine engine = new ScriptEngineManager().getEngineByName("javascript");
         try {
             // evaluate JavaScript code from String
             engine.eval(slice.toStringUtf8());
-            return Slices.utf8Slice(((Invocable) engine).invokeFunction("udf", mapArgs(rowType, row)).toString());
+
+            return Slices.utf8Slice(((Invocable) engine).invokeFunction("udf", args).toString());
         }
         catch (ScriptException | NoSuchMethodException e) {
             throw new RuntimeException(e);
